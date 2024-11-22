@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizar Tela</title>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center min-h-screen">
+
+    <!-- Container principal -->
+    <div class="w-full h-full flex flex-col items-center justify-center p-4">
+        <!-- Título -->
+        <h1 class="text-4xl font-extrabold text-blue-700 mb-6">Visualização da Tela</h1>
+        <p class="text-lg text-gray-600 mb-8">Acompanhe a transmissão em tempo real!</p>
+
+        <!-- Vídeo -->
+        <div class="w-full h-[80vh] bg-black rounded-lg overflow-hidden shadow-lg">
+            <video id="remoteVideo" controls playsinline class="w-full h-full"></video>
+        </div>
+    </div>
+
+</body>
+<script>
+    const socket = io("http://localhost:5000");
+
+    // Configuração dos servidores STUN e TURN
+    const config = {
+        iceServers: [
+            { urls: ["stun:sp-turn2.xirsys.com"] },
+            {
+                username: "l-amMJx2myopJOX4qELJ2xqw58HXrw5ikBUIuYRsS--V-AHAobp8tVBKx6OfxN7iAAAAAGc58_VIaWdvcg==",
+                credential: "7eee59f4-a4ea-11ef-9a19-0242ac120004",
+                urls: [
+                    "turn:sp-turn2.xirsys.com:80?transport=udp",
+                    "turn:sp-turn2.xirsys.com:3478?transport=udp",
+                    "turn:sp-turn2.xirsys.com:80?transport=tcp",
+                    "turn:sp-turn2.xirsys.com:3478?transport=tcp",
+                    "turns:sp-turn2.xirsys.com:443?transport=tcp",
+                    "turns:sp-turn2.xirsys.com:5349?transport=tcp"
+                ]
+            }
+        ]
+    };
+
+    const peerConnection = new RTCPeerConnection(config);
+
+    socket.on("signal", async (data) => {
+        if (data.description) {
+            await peerConnection.setRemoteDescription(data.description);
+            if (data.description.type === "offer") {
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit("signal", { description: peerConnection.localDescription });
+            }
+        }
+        if (data.candidate) {
+            await peerConnection.addIceCandidate(data.candidate);
+        }
+    });
+
+    peerConnection.ontrack = (event) => {
+        const remoteVideo = document.getElementById("remoteVideo");
+        remoteVideo.srcObject = event.streams[0];
+    };
+</script>
+</html>
